@@ -1,1 +1,5 @@
-/data/audio
+/corpus/audio
+/corpus/mappings.json
+.env
+.ipynb_checkpoints
+models
