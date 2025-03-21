@@ -2,5 +2,5 @@
 /corpus/mappings.json
 .env
 .ipynb_checkpoints
-models
 notebooks/output.wav
+models/encoder.h5
