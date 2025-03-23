@@ -7,3 +7,4 @@ librosa
 git+https://github.com/MTG/freesound-python
 python-dotenv
 notebook
+kaleido

@@ -1,6 +1,10 @@
 /corpus/audio
 /corpus/mappings.json
+/corpus/audio.npy
 .env
-.ipynb_checkpoints
-notebooks/output.wav
-models/encoder.h5
+/.ipynb_checkpoints
+/notebooks/output.wav
+/models/encoder.h5
+/models/ae.h5
+/notebooks/.ipynb_checkpoints
+/corpus/latents.npy
