@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Timbre Map</title>
+
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+
+    <script src="mapdata.js"></script>
+    <script src="worldmap.js"></script>
+    <script src="audio.js"></script> <!-- This will handle all the audio logic -->
+
+    <!-- Custom CSS to position the image buttons in the top-right corner -->
+    <style>
+      /* Button styling */
+      .audioButton {
+        position: fixed;
+        top: 10px;
+        z-index: 1000;
+        cursor: pointer;
+        width: 40px;
+        height: 40px;
+        margin-right: 10px;
+      }
+
+      #startAudioButton {
+        right: 10px;
+      }
+
+      #stopAudioButton {
+        right: 60px; /* Positioned to the right of the play button */
+      }
+
+      #restartAudioButton {
+        right: 110px; 
+      }
+
+    /* Button styling for the removeButton and generateButton */
+    #removeButton, #generateButton, #audioSeekBar {
+    position: fixed;
+    z-index: 1000;
+    cursor: pointer;
+  }
+
+  #removeButton {
+    left: 50%; 
+    width: 130px;
+    top: 10px; /* Adjust this value to move the remove button lower */
+  }
+
+  #generateButton {
+    left: 40%; /* Positioned to the left of the remove button */
+    width: 85px;
+    top: 10px; /* Adjust this value to move the generate button lower */
+  }
+
+   /* Audio seek bar */
+  #audioSeekBar {
+    right: 0px;
+    width: 200px; 
+    top: 50px; 
+  }
+
+    </style>
+
+    <script>
+    function send_msg_to_python(obj){
+
+      var msg = JSON.stringify(obj);
+      var webChannel = new QWebChannel(qt.webChannelTransport, function(channel) {
+          var pyBridge = channel.objects.pyBridge;
+          pyBridge.handleMessage(msg);
+        
+      });
+    }
+
+    function HandleMessage(ope_id,param1,param2,param3){ 
+      if(ope_id=="GenerateOK"){
+        
+        newAudio();
+      }
+      else if(ope_id=="alert"){
+          alert(param1);
+      }
+    }
+
+
+    </script>
+
+
+    <script>
+
+    function drawLine(x1, y1, x2, y2) {
+        const canvas = document.getElementById("mapCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Set canvas size to match the map div
+        const mapDiv = document.getElementById("map1");
+        canvas.width = mapDiv.clientWidth;
+        canvas.height = mapDiv.clientHeight;
+
+        // Draw the line
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); // Start point
+        ctx.setLineDash([5, 5]);
+        ctx.lineTo(x2, y2); // End point
+        ctx.strokeStyle = "purple"; // Line color
+        ctx.lineWidth = 3; // Line thickness
+        ctx.stroke();
+    }
+
+    function clearCanvas() {
+      try{
+        const canvas = document.getElementById("mapCanvas"); // Get the canvas element
+
+        const ctx = canvas.getContext("2d"); // Get 2D drawing context
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the full canvas
+      }
+      catch(e){
+
+      }
+
+    }
+
+     
+    var current_country = "country1";
+    var g_country1_x = 0;
+    var g_country1_y = 0;
+    var g_country2_x = 0;
+    var g_country2_y = 0;
+
+
+    function remove(){
+      document.getElementById("country1").value = "";
+      document.getElementById("country2").value = "";
+      clearCanvas();
+      current_country = "country1";
+    }
+
+    function generate()
+    {
+
+      var p_country1 = document.getElementById("country1").value;
+      var p_country2 = document.getElementById("country2").value;
+
+      var obj = {
+            id:"Generate",
+            country1: p_country1,
+            country2: p_country2
+        };   
+
+        send_msg_to_python(obj);
+    }
+
+
+    </script>
+
+  </head>
+  <body>
+   
+      <div style="position:absolute;left:0px;top:10px;height:20px;">
+          <input type="text" id="country1"></input> to <input type="text" id="country2"></input>
+
+
+          <img src="images/button_remove-selection.png" id="removeButton" alt="Remove" onclick="remove()" class="buttonStyle">
+          <img src="images/button_generate.png" id="generateButton" alt="Generate" onclick="generate()" class="buttonStyle">
+
+
+      <div style="position:absolute;left:0px;top:70px;">
+        <canvas id="mapCanvas" style="position: absolute; top: 0; left: 0;  width: 1024px;height:700px;"></canvas>
+      </div>   
+    </div>
+ 
+
+        <div id="map1" style="position:absolute;left:0px;top:70px;width: 1024px;height:700px;max-width: 2000px;">
+          
+          <div id="map"></div>
+        
+        </div>
+
+       
+       
+       
+     
+
+               <!-- Audio Seek Bar -->
+    <input type="range" id="audioSeekBar" min="0" value="0" step="1">
+
+
+   
+
+    <img id="startAudioButton" class="audioButton" src="images/start_button.png" alt="Play Audio" 
+    onclick="triggerPlayAudio()" title="Play Audio" />
+<img id="stopAudioButton" class="audioButton" src="images/stop_button.png" alt="Stop Audio" 
+    onclick="stopAudio()" title="Stop Audio" />
+<img id="restartAudioButton" class="audioButton" src="images/start_back.webp" alt="Restart Audio" 
+    onclick="restartAudio()" title="Restart Audio" />
+
+    <script>
+      let selectedCountryCode = ''; // Stores the last clicked country
+
+      // Function to update the selected country when clicked on the map
+      function setPlayButtonForCountry(countryCode) {
+        selectedCountryCode = countryCode; // Store the country code
+        console.log("Selected Country Code: " + selectedCountryCode); // Debugging
+      }
+
+      // Function to trigger play audio for the last selected country
+      function triggerPlayAudio() {
+        
+          playAudio(); // Play audio for the last selected country
+        
+      }
+
+      // Map click event to set the selected country
+      document.addEventListener("DOMContentLoaded", function () {
+        // worldmap.js has a way to detect clicks, you need to integrate it
+        window.simplemaps_worldmap.hooks.click_state = function (countryCode) {
+          //setPlayButtonForCountry(countryCode);
+
+          if(current_country=="country1"){
+           
+            var countryData = simplemaps_worldmap_mapdata.state_specific[countryCode];
+
+            document.getElementById(current_country).value = countryData.name;
+            current_country="country2";
+            document.getElementById(current_country).value = "";
+          }
+          else if(current_country=="country2"){
+
+            var countryData = simplemaps_worldmap_mapdata.state_specific[countryCode];
+
+            document.getElementById(current_country).value = countryData.name;
+            current_country="country1";
+           
+          }
+
+        };
+
+       
+
+      });
+    </script>
+
+
+    <script>
+
+
+
+    // Add an event listener to the #mouse div
+    
+      document.getElementById("map").addEventListener("mouseup", function(event) {
+          // Get mouse position relative to the #mouse div
+          const mouseX = event.offsetX;
+          const mouseY = event.offsetY;
+
+          if(current_country=="country1"){
+              clearCanvas();
+              g_country1_x = mouseX;
+              g_country1_y = mouseY;
+          }
+          else if(current_country=="country2"){
+              g_country2_x = mouseX;
+              g_country2_y = mouseY;
+              drawLine(g_country1_x, g_country1_y, g_country2_x, g_country2_y);
+          }
+
+          // Output mouse position to console
+          console.log("Mouse Position: X =", mouseX, ", Y =", mouseY);
+      });
+
+      const canvas = document.createElement("canvas");
+
+  
+
+    </script>
+
+  </body>
+</html>

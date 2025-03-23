@@ -8,3 +8,4 @@
 /models/ae.h5
 /notebooks/.ipynb_checkpoints
 /corpus/latents.npy
+/html/output.wav
