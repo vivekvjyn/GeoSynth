@@ -8,7 +8,7 @@ Sonification of geo-location using Auto-encoder
 **Clone the repository**
 
 ```bash
-git clone https://github.com/enter-opy/geosynth.git
+git clone https://github.com/vivekvjyn/geosynth.git
 cd geosynth
 ```
 
