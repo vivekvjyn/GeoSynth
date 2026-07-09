@@ -1,0 +1,10 @@
+.git
+.gitignore
+.cache
+.env
+__pycache__
+*.pyc
+notebooks
+LICENSE
+README.md
+runtime.txt
