@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}GeoSynth{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <script src="https://unpkg.com/globe.gl@2.35.1/dist/globe.gl.min.js"></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <div class="controls-panel">
+    <h3>Controls</h3>
+
+    <div class="ctrl-group">
+      <label>Speed</label>
+      <div class="slider-row">
+        <input type="range" id="speedSlider" min="10" max="200" value="40" step="5">
+        <span class="slider-val" id="speedVal">40 km/s</span>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <label>Volume</label>
+      <div class="slider-row">
+        <input type="range" id="volumeSlider" min="0" max="100" value="70">
+        <span class="slider-val" id="volumeVal">70%</span>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <label>Filter</label>
+      <div class="slider-row">
+        <input type="range" id="filterSlider" min="0" max="22000" value="22000" step="100">
+        <span class="slider-val" id="filterVal">22000 Hz</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3>Stats</h3>
+
+    <div class="ctrl-group">
+      <label>Countries Visited</label>
+      <span class="stat-val" id="countriesVisited">0</span>
+    </div>
+
+    <div class="ctrl-group">
+      <label>Distance Traveled</label>
+      <span class="stat-val" id="distanceTraveled">0 km</span>
+    </div>
+
+    <div class="ctrl-group">
+      <label>Time Elapsed</label>
+      <span class="stat-val" id="timeElapsed">0:00</span>
+    </div>
+
+  </div>
+
+  {% block body %}{% endblock %}
+
+  <div class="player-bar">
+    <div class="now-playing" id="nowPlaying">No track</div>
+    <div class="player-controls">
+      <button class="ctrl-btn" onclick="prevCountry()" title="Previous">&#9198;</button>
+      <button class="ctrl-btn play-btn" id="playPauseBtn" onclick="togglePlayPause()" title="Play">&#9654;</button>
+      <button class="ctrl-btn" onclick="stopPlayback()" title="Stop">&#9632;</button>
+      <button class="ctrl-btn" onclick="nextCountry()" title="Next">&#9197;</button>
+    </div>
+    <div class="seek-row">
+      <span class="time-label" id="currentDist">0 km</span>
+      <input type="range" id="audioSeekBar" min="0" value="0" step="0.1">
+      <span class="time-label" id="totalDist">0 km</span>
+    </div>
+    <div class="shuffle-row">
+      <button class="ctrl-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle">S</button>
+      <span class="track-counter" id="trackCounter">0 / 0</span>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

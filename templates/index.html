@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<div class="app">
+  <div class="map-area" id="globe-container"></div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h3>Route</h3>
+      <button class="clear-btn" onclick="clearQueue()">Clear</button>
+    </div>
+    <div class="queue-list" id="queueList">
+      <div class="queue-empty" id="queueEmpty">Click countries on the globe to build your route</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
