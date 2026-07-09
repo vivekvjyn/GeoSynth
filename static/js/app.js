@@ -2,7 +2,10 @@ let countries = {};
 let queue = [];
 let currentIndex = -1;
 let isPlaying = false;
-let shuffleMode = false;
+
+const SAMPLE_RATE = 44100;
+const CHUNK_SAMPLES = 2048;
+const CHUNK_DURATION = CHUNK_SAMPLES / SAMPLE_RATE;
 
 const COLORS = [
   '#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6eb4',
@@ -11,10 +14,8 @@ const COLORS = [
 
 const seekBar = document.getElementById('audioSeekBar');
 const playPauseBtn = document.getElementById('playPauseBtn');
-const nowPlaying = document.getElementById('nowPlaying');
 const queueList = document.getElementById('queueList');
 const queueEmpty = document.getElementById('queueEmpty');
-const trackCounter = document.getElementById('trackCounter');
 const speedSlider = document.getElementById('speedSlider');
 const volumeSlider = document.getElementById('volumeSlider');
 const filterSlider = document.getElementById('filterSlider');
@@ -22,6 +23,7 @@ const speedVal = document.getElementById('speedVal');
 const volumeVal = document.getElementById('volumeVal');
 const filterVal = document.getElementById('filterVal');
 const countriesVisitedEl = document.getElementById('countriesVisited');
+const tripCountEl = document.getElementById('tripCount');
 const distanceTraveledEl = document.getElementById('distanceTraveled');
 const timeElapsedEl = document.getElementById('timeElapsed');
 
@@ -33,26 +35,49 @@ function getColorForCode(code) {
 }
 function isCountrySelected(code) { return queue.findIndex(q => q.code === code); }
 
+function sliderToFreq(val) {
+  if (val === 0) return 20;
+  return Math.round(20 * Math.pow(1100, val / 10000));
+}
+
+function sliderToDb(val) {
+  if (val === 0) return -Infinity;
+  return Math.round(-60 + (val / 100) * 60);
+}
+
+function dbToGain(db) {
+  if (db === -Infinity || db <= -60) return 0;
+  return Math.pow(10, db / 20);
+}
+
 let audioCtx = null;
 let sourceNode = null;
 let gainNode = null;
 let filterNode = null;
 let currentAudioBuffer = null;
-let currentStartTime = 0;
-let currentOffset = 0;
-let segmentDuration = 0;
 let segmentDistance = 0;
-let sessionTraveled = 0;
 let animFrameId = null;
+
+let playheadLat = 0;
+let playheadLng = 0;
+let playheadFraction = 0;
+let segmentStartLat = 0;
+let segmentStartLng = 0;
+let segmentEndLat = 0;
+let segmentEndLng = 0;
+let nextPlayTime = 0;
+let bufferQueue = [];
+let isBuffering = false;
+let playheadTimer = null;
 
 function getAudioCtx() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     filterNode = audioCtx.createBiquadFilter();
     filterNode.type = 'lowpass';
-    filterNode.frequency.value = parseFloat(filterSlider.value);
+    filterNode.frequency.value = sliderToFreq(parseFloat(filterSlider.value));
     gainNode = audioCtx.createGain();
-    gainNode.gain.value = parseFloat(volumeSlider.value) / 100;
+    gainNode.gain.value = dbToGain(sliderToDb(parseFloat(volumeSlider.value)));
     filterNode.connect(gainNode);
     gainNode.connect(audioCtx.destination);
   }
@@ -89,17 +114,14 @@ function getTraveledDistance() {
   if (currentIndex >= 0 && currentIndex < queue.length - 1) {
     const c1 = countries[queue[currentIndex].code];
     const c2 = countries[queue[currentIndex + 1].code];
-    if (c1 && c2) dist += haversineDistance(c1, c2) * currentFraction;
+    if (c1 && c2) dist += haversineDistance(c1, c2) * playheadFraction;
   }
   return dist;
 }
 
-function interpolatePos(c1, c2, t) {
-  return { lat: c1.lat + (c2.lat - c1.lat) * t, lng: c1.lng + (c2.lng - c1.lng) * t };
-}
-
 function updateDistanceDisplay() {
   countriesVisitedEl.textContent = visitedCount;
+  tripCountEl.textContent = Math.max(0, queue.length - 1);
 }
 
 function formatTime(sec) {
@@ -108,24 +130,21 @@ function formatTime(sec) {
   return m + ':' + String(s).padStart(2, '0');
 }
 
-let speedDebounce = null;
 speedSlider.addEventListener('input', () => {
   speedVal.textContent = speedSlider.value + ' km/s';
   updateDistanceDisplay();
-  if (isPlaying && currentIndex >= 0 && currentIndex < queue.length - 1) {
-    clearTimeout(speedDebounce);
-    speedDebounce = setTimeout(() => regenerateFromCurrent(), 300);
-  }
 });
 
 volumeSlider.addEventListener('input', () => {
-  volumeVal.textContent = volumeSlider.value + '%';
-  if (gainNode) gainNode.gain.value = parseFloat(volumeSlider.value) / 100;
+  const db = sliderToDb(parseFloat(volumeSlider.value));
+  volumeVal.textContent = db === -Infinity ? '-∞ dB' : db + ' dB';
+  if (gainNode) gainNode.gain.value = dbToGain(db);
 });
 
 filterSlider.addEventListener('input', () => {
-  filterVal.textContent = filterSlider.value + ' Hz';
-  if (filterNode) filterNode.frequency.value = parseFloat(filterSlider.value);
+  const freq = sliderToFreq(parseFloat(filterSlider.value));
+  filterVal.textContent = freq >= 1000 ? (freq / 1000).toFixed(1) + ' kHz' : freq + ' Hz';
+  if (filterNode) filterNode.frequency.value = freq;
 });
 
 const container = document.getElementById('globe-container');
@@ -149,7 +168,7 @@ const globe = Globe()
   .polygonLabel(d => {
     const code = d.properties.iso_a2 || '';
     const name = countries[code] ? countries[code].name : code;
-    return '<div style="background:#161b22;color:#e6edf3;padding:6px 10px;border-radius:6px;font-size:13px">' + name + '</div>';
+    return '<div style="background:rgba(16,16,24,0.8);backdrop-filter:blur(12px);color:#e6edf3;padding:6px 10px;border-radius:8px;font-size:13px;border:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:6px"><img src="https://flagcdn.com/w24/' + code.toLowerCase() + '.png" style="height:14px" loading="lazy">' + name + '</div>';
   })
   .onPolygonClick(handlePolygonClick)
   .polygonAltitude(0.005)
@@ -168,7 +187,16 @@ const globe = Globe()
 globe(container);
 globe.width(container.clientWidth);
 globe.height(container.clientHeight);
-globe.pointOfView({ lat: 20, lng: 0, altitude: 2.5 }, 0);
+
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    pos => globe.pointOfView({ lat: pos.coords.latitude, lng: pos.coords.longitude, altitude: 2.5 }, 1000),
+    () => globe.pointOfView({ lat: 20, lng: 0, altitude: 2.5 }, 0),
+    { timeout: 5000 }
+  );
+} else {
+  globe.pointOfView({ lat: 20, lng: 0, altitude: 2.5 }, 0);
+}
 
 window.addEventListener('resize', () => {
   globe.width(container.clientWidth);
@@ -188,11 +216,14 @@ function handlePolygonClick(feature) {
   if (!feature || !feature.properties) return;
   const code = feature.properties.iso_a2 || '';
   if (!code || code === '-1') return;
+  if (queue.some(q => q.code === code)) return;
   const name = countries[code] ? countries[code].name : code;
   addToQueue(code, name);
 }
 
-function updatePolygons() { globe.polygonsData([...globe.polygonsData()]); }
+function updatePolygons() {
+  globe.polygonsData([...globe.polygonsData()]);
+}
 
 function updateArcs() {
   if (queue.length < 2) { globe.arcsData([]); return; }
@@ -221,98 +252,110 @@ function getArcPosition(c1, c2, t) {
 
 function updatePlayhead() {
   if (currentIndex < 0 || currentIndex >= queue.length - 1) { globe.pointsData([]); return; }
-  const c1 = countries[queue[currentIndex].code];
-  const c2 = countries[queue[currentIndex + 1].code];
-  if (!c1 || !c2) return;
-  const pos = getArcPosition(c1, c2, currentFraction);
+  const pos = getArcPosition(
+    { lat: segmentStartLat, lng: segmentStartLng },
+    { lat: segmentEndLat, lng: segmentEndLng },
+    playheadFraction
+  );
   globe.pointsData([{ lat: pos.lat, lng: pos.lng }]);
 }
 
-let currentFraction = 0;
 let visitedCount = 0;
 
-async function fetchSegmentAudio(lat1, lng1, lat2, lng2) {
-  const resp = await fetch('/api/generate', {
+async function fetchChunk(lat, lng) {
+  const resp = await fetch('/api/chunk', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      lat1, lng1, lat2, lng2,
-      speed: parseFloat(speedSlider.value),
-      volume: 1.0
-    })
+    body: JSON.stringify({ lat, lng })
   });
-  const blob = await resp.blob();
-  const arrayBuf = await blob.arrayBuffer();
+  const count = parseInt(resp.headers.get('X-Sample-Count'));
+  const buf = await resp.arrayBuffer();
+  return new Float32Array(buf, 0, count);
+}
+
+function scheduleChunk(samples) {
   const ctx = getAudioCtx();
-  return await ctx.decodeAudioData(arrayBuf);
-}
+  const buffer = ctx.createBuffer(1, samples.length, SAMPLE_RATE);
+  buffer.getChannelData(0).set(samples);
 
-function playBuffer(buffer, offset) {
-  if (sourceNode) { try { sourceNode.stop(); sourceNode.disconnect(); } catch(e) {} }
-  const ctx = getAudioCtx();
-  sourceNode = ctx.createBufferSource();
-  sourceNode.buffer = buffer;
-  sourceNode.connect(filterNode);
-  sourceNode.onended = () => {
-    if (isPlaying && currentFraction >= 0.99) nextCountry();
-  };
-  sourceNode.start(0, offset);
-  currentStartTime = ctx.currentTime - offset;
-  segmentDuration = buffer.duration;
-}
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(filterNode);
 
-function getElapsed() {
-  const ctx = getAudioCtx();
-  if (!isPlaying) return currentOffset;
-  return ctx.currentTime - currentStartTime;
-}
-
-function seekToFraction(frac) {
-  if (!currentAudioBuffer) return;
-  currentFraction = frac;
-  const offset = frac * segmentDuration;
-  currentOffset = offset;
-  playBuffer(currentAudioBuffer, offset);
-}
-
-async function regenerateFromCurrent() {
-  if (currentIndex < 0 || currentIndex >= queue.length - 1) return;
-  const c1 = countries[queue[currentIndex].code];
-  const c2 = countries[queue[currentIndex + 1].code];
-  if (!c1 || !c2) return;
-
-  const wasPlaying = isPlaying;
-
-  currentAudioBuffer = await fetchSegmentAudio(c1.lat, c1.lng, c2.lat, c2.lng);
-  segmentDuration = currentAudioBuffer.duration;
-
-  if (wasPlaying) {
-    const fraction = Math.min(currentFraction, 0.99);
-    playBuffer(currentAudioBuffer, fraction * segmentDuration);
-  }
-}
-
-function animateProgress() {
-  if (!isPlaying) return;
-
-  if (currentAudioBuffer && segmentDuration > 0) {
-    const elapsed = getElapsed();
-    currentFraction = Math.min(elapsed / segmentDuration, 1.0);
+  const now = ctx.currentTime;
+  if (nextPlayTime < now) {
+    nextPlayTime = now;
   }
 
-  const totalDist = getTotalDistance();
-  const traveled = getTraveledDistance();
-  distanceTraveledEl.textContent = Math.round(traveled).toLocaleString() + ' km';
-  timeElapsedEl.textContent = formatTime(traveled / parseFloat(speedSlider.value));
+  source.start(nextPlayTime);
+  nextPlayTime += buffer.duration;
 
-  const currentSegDist = segmentDistance * currentFraction;
-  document.getElementById('currentDist').textContent = Math.round(currentSegDist).toLocaleString() + ' km';
-  document.getElementById('totalDist').textContent = Math.round(segmentDistance).toLocaleString() + ' km';
-  seekBar.max = segmentDistance;
-  seekBar.value = currentSegDist;
+  bufferQueue.push({ source, duration: buffer.duration });
+}
 
-  updatePlayhead();
-  animFrameId = requestAnimationFrame(animateProgress);
+let segmentStartTime = 0;
+let lastTickTime = 0;
+
+function startPlayhead() {
+  if (playheadTimer) clearInterval(playheadTimer);
+
+  playheadFraction = 0;
+  nextPlayTime = getAudioCtx().currentTime;
+  bufferQueue = [];
+  isBuffering = false;
+  lastTickTime = performance.now();
+
+  playheadTimer = setInterval(() => {
+    if (!isPlaying) return;
+
+    const now = performance.now();
+    const dt = (now - lastTickTime) / 1000;
+    lastTickTime = now;
+
+    const speed = parseFloat(speedSlider.value);
+    playheadFraction = Math.min(playheadFraction + (dt * speed) / segmentDistance, 1.0);
+
+    const lat = segmentStartLat + (segmentEndLat - segmentStartLat) * playheadFraction;
+    const lng = segmentStartLng + (segmentEndLng - segmentStartLng) * playheadFraction;
+
+    updatePlayhead();
+
+    const traveled = getTraveledDistance();
+    distanceTraveledEl.textContent = Math.round(traveled).toLocaleString() + ' km';
+    timeElapsedEl.textContent = formatTime(traveled / speed);
+    document.getElementById('currentDist').textContent = Math.round(segmentDistance * playheadFraction).toLocaleString() + ' km';
+    document.getElementById('totalDist').textContent = Math.round(segmentDistance).toLocaleString() + ' km';
+    seekBar.max = segmentDistance;
+    seekBar.value = segmentDistance * playheadFraction;
+
+    fetchChunk(lat, lng).then(samples => {
+      scheduleChunk(samples);
+      if (isBuffering) {
+        isBuffering = false;
+      }
+    }).catch(() => {});
+
+    if (playheadFraction >= 1.0) {
+      clearInterval(playheadTimer);
+      playheadTimer = null;
+      setTimeout(() => {
+        if (isPlaying) nextCountry();
+      }, 2000);
+    }
+  }, 50);
+}
+
+function stopPlayhead() {
+  if (playheadTimer) {
+    clearInterval(playheadTimer);
+    playheadTimer = null;
+  }
+  bufferQueue.forEach(b => {
+    try { b.source.stop(); b.source.disconnect(); } catch(e) {}
+  });
+  bufferQueue = [];
+  nextPlayTime = 0;
+  playheadFraction = 0;
 }
 
 function addToQueue(countryCode, countryName) {
@@ -323,6 +366,8 @@ function addToQueue(countryCode, countryName) {
   renderQueue();
   if (queue.length === 2 && currentIndex === -1) {
     currentIndex = 0;
+    visitedCount = 1;
+    updateDistanceDisplay();
     generateAndPlay();
   }
 }
@@ -331,7 +376,6 @@ function removeFromQueue(index) {
   queue.splice(index, 1);
   if (queue.length === 0) {
     currentIndex = -1;
-    sessionTraveled = 0;
     stopPlayback();
   } else if (index <= currentIndex) {
     currentIndex = Math.max(0, currentIndex - 1);
@@ -358,7 +402,6 @@ function moveInQueue(from, to) {
 function clearQueue() {
   queue = [];
   currentIndex = -1;
-  sessionTraveled = 0;
   stopPlayback();
   updatePolygons();
   updateArcs();
@@ -366,9 +409,13 @@ function clearQueue() {
   renderQueue();
 }
 
+function getFlagUrl(code) {
+  if (!code || code.length !== 2) return '';
+  return 'https://flagcdn.com/w40/' + code.toLowerCase() + '.png';
+}
+
 function renderQueue() {
   queueEmpty.style.display = queue.length ? 'none' : 'block';
-  trackCounter.textContent = queue.length ? (currentIndex + 1) + ' / ' + queue.length : '0 / 0';
   const existing = queueList.querySelectorAll('.queue-item');
   existing.forEach(el => el.remove());
   queue.forEach((item, i) => {
@@ -378,7 +425,7 @@ function renderQueue() {
     el.draggable = true;
     el.dataset.index = i;
     el.innerHTML =
-      '<span class="qi-num">' + (i + 1) + '</span>' +
+      '<img class="qi-flag" src="' + getFlagUrl(item.code) + '" alt="' + item.code + '" loading="lazy">' +
       '<span class="qi-name">' + item.name + '</span>' +
       '<button class="qi-remove" onclick="removeFromQueue(' + i + ')" title="Remove">&times;</button>';
     el.addEventListener('dragstart', onDragStart);
@@ -402,28 +449,26 @@ async function generateAndPlay() {
   const cc1 = countries[c1.code];
   const cc2 = countries[c2.code];
 
-  nowPlaying.textContent = c1.name + ' → ' + c2.name;
+  stopPlayhead();
+
+  segmentStartLat = cc1.lat;
+  segmentStartLng = cc1.lng;
+  segmentEndLat = cc2.lat;
+  segmentEndLng = cc2.lng;
   segmentDistance = cc1 && cc2 ? haversineDistance(cc1, cc2) : 0;
-  currentFraction = 0;
-  currentOffset = 0;
+
   updateArcs();
   renderQueue();
 
   try {
-    currentAudioBuffer = await fetchSegmentAudio(cc1.lat, cc1.lng, cc2.lat, cc2.lng);
-    segmentDuration = currentAudioBuffer.duration;
-
     const ctx = getAudioCtx();
     if (ctx.state === 'suspended') await ctx.resume();
 
     isPlaying = true;
-    playBuffer(currentAudioBuffer, 0);
     updatePlayPauseIcon();
-    if (animFrameId) cancelAnimationFrame(animFrameId);
-    animateProgress();
+    startPlayhead();
   } catch (e) {
     console.error('Generate failed:', e);
-    nowPlaying.textContent = 'Error: ' + e.message;
     isPlaying = false;
     updatePlayPauseIcon();
   }
@@ -432,15 +477,8 @@ async function generateAndPlay() {
 function togglePlayPause() {
   const ctx = getAudioCtx();
   if (isPlaying) {
-    currentOffset = getElapsed();
-    if (sourceNode) { try { sourceNode.stop(); sourceNode.disconnect(); } catch(e) {} }
+    stopPlayhead();
     isPlaying = false;
-    if (animFrameId) cancelAnimationFrame(animFrameId);
-  } else if (currentAudioBuffer) {
-    isPlaying = true;
-    playBuffer(currentAudioBuffer, currentOffset);
-    if (animFrameId) cancelAnimationFrame(animFrameId);
-    animateProgress();
   } else if (queue.length >= 2) {
     if (currentIndex < 0) currentIndex = 0;
     generateAndPlay();
@@ -450,20 +488,17 @@ function togglePlayPause() {
 
 function stopPlayback() {
   isPlaying = false;
-  currentFraction = 0;
-  currentOffset = 0;
-  segmentDuration = 0;
+  stopPlayhead();
+  playheadFraction = 0;
+  segmentDistance = 0;
   visitedCount = 0;
   updateDistanceDisplay();
-  if (sourceNode) { try { sourceNode.stop(); sourceNode.disconnect(); } catch(e) {} sourceNode = null; }
-  if (animFrameId) cancelAnimationFrame(animFrameId);
   globe.pointsData([]);
   document.getElementById('currentDist').textContent = '0 km';
   document.getElementById('totalDist').textContent = '0 km';
   distanceTraveledEl.textContent = '0 km';
   timeElapsedEl.textContent = '0:00';
   seekBar.value = 0;
-  nowPlaying.textContent = queue.length ? 'Paused' : 'No track';
   updatePlayPauseIcon();
 }
 
@@ -471,12 +506,8 @@ function nextCountry() {
   if (queue.length < 2) return;
   visitedCount++;
   updateDistanceDisplay();
-  if (shuffleMode) {
-    currentIndex = Math.floor(Math.random() * (queue.length - 1));
-  } else {
-    currentIndex++;
-    if (currentIndex >= queue.length - 1) currentIndex = 0;
-  }
+  currentIndex++;
+  if (currentIndex >= queue.length - 1) currentIndex = 0;
   generateAndPlay();
 }
 
@@ -486,18 +517,14 @@ function prevCountry() {
   generateAndPlay();
 }
 
-function toggleShuffle() {
-  shuffleMode = !shuffleMode;
-  document.getElementById('shuffleBtn').classList.toggle('active', shuffleMode);
-}
-
 function updatePlayPauseIcon() {
   playPauseBtn.innerHTML = isPlaying ? '&#9646;&#9646;' : '&#9654;';
 }
 
 seekBar.addEventListener('input', () => {
-  if (isPlaying && currentAudioBuffer && segmentDistance > 0) {
-    const frac = seekBar.value / segmentDistance;
-    seekToFraction(Math.max(0, Math.min(frac, 1.0)));
+  if (isPlaying && segmentDistance > 0) {
+    playheadFraction = seekBar.value / segmentDistance;
+    lastTickTime = performance.now();
+    updatePlayhead();
   }
 });

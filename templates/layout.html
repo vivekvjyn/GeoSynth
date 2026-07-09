@@ -9,7 +9,7 @@
 </head>
 <body>
 
-  <div class="controls-panel">
+  <div class="controls-panel glass">
     <h3>Controls</h3>
 
     <div class="ctrl-group">
@@ -23,22 +23,27 @@
     <div class="ctrl-group">
       <label>Volume</label>
       <div class="slider-row">
-        <input type="range" id="volumeSlider" min="0" max="100" value="70">
-        <span class="slider-val" id="volumeVal">70%</span>
+        <input type="range" id="volumeSlider" min="0" max="100" value="85">
+        <span class="slider-val" id="volumeVal">-6 dB</span>
       </div>
     </div>
 
     <div class="ctrl-group">
       <label>Filter</label>
       <div class="slider-row">
-        <input type="range" id="filterSlider" min="0" max="22000" value="22000" step="100">
-        <span class="slider-val" id="filterVal">22000 Hz</span>
+        <input type="range" id="filterSlider" min="0" max="10000" value="10000">
+        <span class="slider-val" id="filterVal">22 kHz</span>
       </div>
     </div>
 
     <div class="divider"></div>
 
     <h3>Stats</h3>
+
+    <div class="ctrl-group">
+      <label>Trips</label>
+      <span class="stat-val" id="tripCount">0</span>
+    </div>
 
     <div class="ctrl-group">
       <label>Countries Visited</label>
@@ -59,22 +64,18 @@
 
   {% block body %}{% endblock %}
 
-  <div class="player-bar">
-    <div class="now-playing" id="nowPlaying">No track</div>
-    <div class="player-controls">
-      <button class="ctrl-btn" onclick="prevCountry()" title="Previous">&#9198;</button>
-      <button class="ctrl-btn play-btn" id="playPauseBtn" onclick="togglePlayPause()" title="Play">&#9654;</button>
-      <button class="ctrl-btn" onclick="stopPlayback()" title="Stop">&#9632;</button>
-      <button class="ctrl-btn" onclick="nextCountry()" title="Next">&#9197;</button>
-    </div>
-    <div class="seek-row">
-      <span class="time-label" id="currentDist">0 km</span>
-      <input type="range" id="audioSeekBar" min="0" value="0" step="0.1">
-      <span class="time-label" id="totalDist">0 km</span>
-    </div>
-    <div class="shuffle-row">
-      <button class="ctrl-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle">S</button>
-      <span class="track-counter" id="trackCounter">0 / 0</span>
+  <div class="player-bar glass">
+    <div class="player-inner">
+      <div class="player-controls">
+        <button class="ctrl-btn" onclick="prevCountry()" title="Previous">&#9198;</button>
+        <button class="ctrl-btn play-btn" id="playPauseBtn" onclick="togglePlayPause()" title="Play">&#9654;</button>
+        <button class="ctrl-btn" onclick="nextCountry()" title="Next">&#9197;</button>
+      </div>
+      <div class="seek-row">
+        <span class="time-label" id="currentDist">0 km</span>
+        <input type="range" id="audioSeekBar" min="0" value="0" step="0.1">
+        <span class="time-label" id="totalDist">0 km</span>
+      </div>
     </div>
   </div>
 
