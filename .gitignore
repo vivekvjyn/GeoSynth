@@ -2,6 +2,5 @@
 .env
 *.ipynb_checkpoints
 *.wav
-*.h5
 *.npy
 *__pycache__

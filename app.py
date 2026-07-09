@@ -9,31 +9,13 @@ warnings.filterwarnings('ignore')
 import logging
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
-import struct
-import json
 import numpy as np
-from flask import Flask, request, jsonify, render_template, Response
-from models.mlp import MLP
-from models.decoder import Decoder
-from utils import haversine_distance
-import geocoder
+from flask import Flask, request, render_template, Response
+from models import mlp, decoder
 
 app = Flask(__name__)
 
 SAMPLE_RATE = 44100
-
-with open('models/configs/mlp.json') as f:
-    mlp_cfg = json.load(f)
-with open('models/configs/decoder.json') as f:
-    dec_cfg = json.load(f)
-
-mlp = MLP(**mlp_cfg)
-mlp.build(input_shape=(None, 2))
-mlp.load_weights('models/weights/mlp.h5')
-
-decoder = Decoder(**dec_cfg)
-decoder.build(input_shape=(None, 64))
-decoder.load_weights('models/weights/decoder.h5')
 
 
 @app.route('/')
@@ -65,14 +47,6 @@ def api_chunk():
     )
 
 
-@app.post('/api/resolve')
-def api_resolve():
-    data = request.json
-    country = data.get('country', '')
-    g = geocoder.arcgis(country)
-    lat, lng = g.latlng
-    return jsonify({'lat': lat, 'lng': lng})
-
-
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)

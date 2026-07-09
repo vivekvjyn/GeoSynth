@@ -1,0 +1,16 @@
+numpy
+pandas
+tensorflow
+matplotlib
+seaborn
+plotly
+librosa
+soundfile
+reverse_geocoder
+pycountry
+ipywidgets
+notebook
+rich
+tqdm
+requests
+python-dotenv

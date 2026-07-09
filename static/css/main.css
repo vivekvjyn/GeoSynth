@@ -23,6 +23,8 @@ body {
 .app {
   display: flex;
   height: calc(100vh - 70px);
+  margin-left: 240px;
+  position: relative;
 }
 
 .map-area {
@@ -343,9 +345,3 @@ body {
 }
 
 /* Adjust map area for left panel */
-.app {
-  display: flex;
-  height: calc(100vh - 70px);
-  margin-left: 240px;
-  position: relative;
-}

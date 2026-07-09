@@ -1,39 +1,22 @@
-# Geosynth
-Sonification of geo-location using Auto-encoder
+# GeoSynth
 
-![Geosynth](Screenshot.png)
+Real-time geographic audio synthesis. Click countries on a 3D globe to build a route, and the app generates audio from neural networks trained on geographic coordinates.
 
-## How to run
-
-**Clone the repository**
+## Run locally
 
 ```bash
-git clone https://github.com/vivekvjyn/geosynth.git
-cd geosynth
-```
-
-**Create and activate conda environment**
-
-```bash
-conda create -n geosynth python=3.10
-conda activate geosynth
-```
-
-**Install CUDA and CuDNN**
-
-```bash
-conda install -c conda-forge -y cudatoolkit=11.2 cudnn=8.1
-```
-
-**Install dependencies**
-
-```bash
+conda create -n geosynth python=3.10 && conda activate geosynth
 pip install -r requirements.txt
+python app.py
 ```
 
-**Run geosynth**
+## Deploy (Render)
 
-```bash
-CUDA_VISIBLE_DEVICES=0 TF_CPP_MIN_LOG_LEVEL=3 python main.py
-```
+1. Push this repo to GitHub
+2. Go to [render.com](https://render.com) → New → Web Service
+3. Connect your GitHub repo
+4. **Build Command**: `pip install -r requirements.txt`
+5. **Start Command**: `gunicorn app:app --timeout 120`
+6. Deploy
 
+The app sleeps after 15min idle. First request wakes it (~50s), then it runs normally.
