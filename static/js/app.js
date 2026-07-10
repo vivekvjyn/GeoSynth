@@ -263,7 +263,7 @@ function updatePlayhead() {
 let visitedCount = 0;
 
 async function fetchChunk(lat, lng) {
-  const resp = await fetch('/api/chunk', {
+  const resp = await fetch('/api/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ lat, lng })

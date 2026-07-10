@@ -9,11 +9,25 @@ warnings.filterwarnings('ignore')
 import logging
 logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
+import json
 import numpy as np
 from flask import Flask, request, render_template, Response
-from models import mlp, decoder
+from models import MLP, Decoder
 
 app = Flask(__name__)
+
+BASE_DIR = os.path.dirname(__file__)
+
+with open(f'{BASE_DIR}/models/configs/mlp.json') as f:
+    mlp_cfg = json.load(f)
+with open(f'{BASE_DIR}/models/configs/decoder.json') as f:
+    dec_cfg = json.load(f)
+
+mlp = MLP(**mlp_cfg)
+mlp.load_weights(f'{BASE_DIR}/models/weights/mlp.h5')
+
+decoder = Decoder(**dec_cfg)
+decoder.load_weights(f'{BASE_DIR}/models/weights/decoder.h5')
 
 SAMPLE_RATE = 44100
 
@@ -23,8 +37,8 @@ def index():
     return render_template('index.html')
 
 
-@app.post('/api/chunk')
-def api_chunk():
+@app.post('/api/stream')
+def api_stream():
     data = request.json
     lat = float(data['lat'])
     lng = float(data['lng'])

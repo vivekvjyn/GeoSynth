@@ -5,12 +5,15 @@ matplotlib
 seaborn
 plotly
 librosa
+mir_eval
+mermaid-py
+seaborn
 soundfile
+freesound
 reverse_geocoder
 pycountry
 ipywidgets
 notebook
-rich
 tqdm
 requests
 python-dotenv
