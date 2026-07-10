@@ -15,20 +15,31 @@ Sonification of geolocations using an Auto-encoder with data collected using [Fr
 flowchart TD
     DB[(Freesound API)] -->|Fetch & process| A[/Audio/]
     DB -->|Fetch & process| G[/Geotags/]
+
+    subgraph "Auto encoder"
+      A --> EN[Encoder]
+      EN --> LV[/Latent Vector/]
+      LV --> DE[Decoder]
+      DE --> RA[/Reconstructed Audio/]
+      A -.->|MAE Loss| RA
+    end
+
+    subgraph "Multi Layer Perceptron"
+      G --> MLP[Multi Layer Perceptron]
+      MLP --> PLV[/Predicted Latent Vector/]
+      PLV --> DE
+      LV -.->|MAE Loss| PLV
+    end
     
-    A --> EN[Encoder]
-    EN --> LV[/Latent Vector/]
-    LV --> DE[Decoder]
-    DE --> RA[/Reconstructed Audio/]
-    A -.->|MAE Loss| RA
-    
-    G --> MLP[Multi Layer Perceptron]
-    MLP --> PLV[/Predicted Latent Vector/]
-    PLV --> DE
-    LV -.->|MAE Loss| PLV
-    
-    HRQ(HTTP Request) --> MLP
+    HRQ(HTTP Request) --> G
     RA --> HRS(HTTP Response)
+
+    linkStyle 9 stroke:#4444ef,stroke-width:3px
+    linkStyle 7 stroke:#4444ef,stroke-width:3px
+    linkStyle 8 stroke:#4444ef,stroke-width:3px
+    linkStyle 11 stroke:#4444ef,stroke-width:3px
+    linkStyle 5 stroke:#4444ef,stroke-width:3px
+    linkStyle 12 stroke:#4444ef,stroke-width:3px
     
     style DB fill:#334155,stroke:#1e293b,color:#f8fafc
     style A fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
