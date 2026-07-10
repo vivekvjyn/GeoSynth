@@ -1,3 +1,2 @@
-from .mlp import MLP
-from .decoder import Decoder
-from .encoder import Encoder
+from .generator import Generator
+from .discriminator import Discriminator
