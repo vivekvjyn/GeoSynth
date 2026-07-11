@@ -21,18 +21,18 @@ flowchart TD
       EN --> LV[/Latent Vector/]
       LV --> DE[Decoder]
       DE --> RA[/Reconstructed Audio/]
-      A -.->|MAE Loss| RA
+      A -.- |MAE Loss| RA
     end
 
     subgraph "Multi Layer Perceptron"
       G --> MLP[Multi Layer Perceptron]
       MLP --> PLV[/Predicted Latent Vector/]
       PLV --> DE
-      LV -.->|MAE Loss| PLV
+      LV -.- |MAE Loss| PLV
     end
 
-    HRQ(HTTP Request) --> MLP
-    RA --> HRS(HTTP Response)
+    HRQ(HTTP Request) ==> MLP
+    RA ==> HRS(HTTP Response)
 
     style DB fill:#334155,stroke:#1e293b,color:#f8fafc
     style A fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
@@ -45,6 +45,7 @@ flowchart TD
     style PLV fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
     style HRQ fill:#64748b,stroke:#475569,color:#f8fafc
     style HRS fill:#64748b,stroke:#475569,color:#f8fafc
+    linkStyle 11,8,9,5,12 stroke:#3b82f6,stroke-width:2px,stroke-dasharray:5 5
 ```
 
 ## Run locally
