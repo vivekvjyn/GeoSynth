@@ -12,19 +12,25 @@ logging.getLogger('tensorflow').setLevel(logging.ERROR)
 import json
 import numpy as np
 from flask import Flask, request, render_template, Response
-from models import Generator
+from huggingface_hub import hf_hub_download
+from models import MLP, Decoder
 
 app = Flask(__name__)
 
-BASE_DIR = os.path.dirname(__file__)
+hf_repo = "vivekvjyn/GeoSynth"
 
-with open(f'{BASE_DIR}/models/configs/generator.json') as f:
-    gen_cfg = json.load(f)
+def load_cfg(name):
+    path = hf_hub_download(repo_id=hf_repo, filename=name)
+    with open(path) as f:
+        return json.load(f)
 
-generator = Generator(**gen_cfg)
-generator.load_weights(f'{BASE_DIR}/models/weights/generator.h5')
+mlp = MLP(**load_cfg("mlp.json"))
+decoder = Decoder(**load_cfg("decoder.json"))
 
-SAMPLE_RATE = 44100
+mlp.load_weights(hf_hub_download(repo_id=hf_repo, filename="mlp.h5"))
+decoder.load_weights(hf_hub_download(repo_id=hf_repo, filename="decoder.h5"))
+
+sample_rate = 44100
 
 
 @app.route('/')
@@ -39,10 +45,9 @@ def api_stream():
     lng = float(data['lng'])
 
     geotag = np.array([[lat / 90.0, lng / 180.0]], dtype=np.float32)
-    noise = np.random.randn(1, gen_cfg['latent_dim']).astype(np.float32)
-    inp = np.concatenate([geotag, noise], axis=1)
+    latent = mlp.predict(geotag, verbose=0)
+    y = decoder.predict(latent, verbose=0)
 
-    y = generator.predict(inp, verbose=0)
     y = np.nan_to_num(y, nan=0.0, posinf=1.0, neginf=-1.0)
     y = np.clip(y, -1.0, 1.0).astype(np.float32)
     flat = y.flatten()
@@ -52,7 +57,7 @@ def api_stream():
         mimetype='application/octet-stream',
         headers={
             'X-Sample-Count': str(len(flat)),
-            'X-Sample-Rate': str(SAMPLE_RATE),
+            'X-Sample-Rate': str(sample_rate),
             'Cache-Control': 'no-cache'
         }
     )

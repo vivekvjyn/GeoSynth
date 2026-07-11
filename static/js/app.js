@@ -6,6 +6,7 @@ let isPlaying = false;
 const SAMPLE_RATE = 44100;
 const CHUNK_SAMPLES = 2048;
 const CHUNK_DURATION = CHUNK_SAMPLES / SAMPLE_RATE;
+const OVERLAP_SAMPLES = 512;
 
 const COLORS = [
   '#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6eb4',
@@ -273,8 +274,21 @@ async function fetchChunk(lat, lng) {
   return new Float32Array(buf, 0, count);
 }
 
+let prevTail = null;
+
 function scheduleChunk(samples) {
   const ctx = getAudioCtx();
+  const overlap = Math.min(OVERLAP_SAMPLES, samples.length, prevTail ? prevTail.length : 0);
+
+  if (prevTail && overlap > 0) {
+    for (let i = 0; i < overlap; i++) {
+      const fade = i / overlap;
+      samples[i] = prevTail[prevTail.length - overlap + i] * (1 - fade) + samples[i] * fade;
+    }
+  }
+
+  prevTail = new Float32Array(samples);
+
   const buffer = ctx.createBuffer(1, samples.length, SAMPLE_RATE);
   buffer.getChannelData(0).set(samples);
 
@@ -356,6 +370,7 @@ function stopPlayhead() {
   bufferQueue = [];
   nextPlayTime = 0;
   playheadFraction = 0;
+  prevTail = null;
 }
 
 function addToQueue(countryCode, countryName) {

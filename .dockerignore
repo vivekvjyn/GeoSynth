@@ -8,3 +8,6 @@ notebooks
 LICENSE
 README.md
 runtime.txt
+screenshot.png
+LICENSE
+*.ipynb_checkpoints

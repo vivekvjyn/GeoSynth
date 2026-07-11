@@ -2,7 +2,7 @@
 
 ![Screenshot](screenshot.png)
 
-Sonification of geolocations using a Conditional GAN with data collected using [Freesound API](https://freesound.org/apiv2/apply). 
+Sonification of geolocations using an Encoder-Decoder MLP with data collected using [Freesound API](https://freesound.org/apiv2/apply). 
 
 - Visit [GeoSynth](https://geosynth.vivekvjyn.xyz/)
 - Click on countries on the globe to create a route
@@ -16,27 +16,35 @@ flowchart TD
     DB[(Freesound API)] -->|Fetch & process| A[/Audio/]
     DB -->|Fetch & process| G[/Geotags/]
 
-    subgraph "Generator"
-      N[/Noise/] --> GEN[Generator]
-      G --> GEN
-      GEN --> FA[/Reconstructed Audio/]
+    subgraph "Autoencoder"
+      A --> EN[Encoder]
+      EN --> LV[/Latent Vector/]
+      LV --> DE[Decoder]
+      DE --> RA[/Reconstructed Audio/]
+      A -.->|MAE Loss| RA
     end
 
-    subgraph "Discriminator"
-      FA --> DIS[Discriminator]
-      A --> DIS
-      DIS --> RF[/Real or Fake/]
-      RF -.- |Adversarial Loss| GEN
-      RF -.- |Adversarial Loss| DIS
+    subgraph "Multi Layer Perceptron"
+      G --> MLP[Multi Layer Perceptron]
+      MLP --> PLV[/Predicted Latent Vector/]
+      PLV --> DE
+      LV -.->|MAE Loss| PLV
     end
+
+    HRQ(HTTP Request) --> MLP
+    RA --> HRS(HTTP Response)
 
     style DB fill:#334155,stroke:#1e293b,color:#f8fafc
     style A fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
     style G fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
-    style GEN fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
-    style FA fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
-    style DIS fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
-    style RF fill:#10b981,stroke:#059669,color:#ecfdf5
+    style EN fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style LV fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
+    style DE fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style RA fill:#10b981,stroke:#059669,color:#ecfdf5
+    style MLP fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style PLV fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
+    style HRQ fill:#64748b,stroke:#475569,color:#f8fafc
+    style HRS fill:#64748b,stroke:#475569,color:#f8fafc
 ```
 
 ## Run locally

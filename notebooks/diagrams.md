@@ -12,33 +12,34 @@ flowchart TD
     DB[(Freesound API)] -->|Fetch & process| A[/Audio/]
     DB -->|Fetch & process| G[/Geotags/]
 
-    subgraph "Training (cGAN)"
-      A --> GEN[Generator]
-      G --> GEN
-      GEN --> FA[/Fake Audio/]
-      FA --> DIS[Discriminator]
-      A --> DIS
-      DIS --> RF[/Real or Fake/]
-      RF -.->|Adversarial Loss| GEN
-      RF -.->|Adversarial Loss| DIS
+    subgraph "Autoencoder"
+      A --> EN[Encoder]
+      EN --> LV[/Latent Vector/]
+      LV --> DE[Decoder]
+      DE --> RA[/Reconstructed Audio/]
+      A -.->|MAE Loss| RA
     end
 
-    subgraph "Inference"
-      HRQ(HTTP Request) --> GEN2[Generator]
-      GEN2 --> GA[/Generated Audio/]
-      GA --> HRS(HTTP Response)
+    subgraph "Multi Layer Perceptron"
+      G --> MLP[Multi Layer Perceptron]
+      MLP --> PLV[/Predicted Latent Vector/]
+      PLV --> DE
+      LV -.->|MAE Loss| PLV
     end
+
+    HRQ(HTTP Request) --> MLP
+    RA --> HRS(HTTP Response)
 
     style DB fill:#334155,stroke:#1e293b,color:#f8fafc
     style A fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
     style G fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
-    style GEN fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
-    style FA fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
-    style DIS fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
-    style RF fill:#10b981,stroke:#059669,color:#ecfdf5
+    style EN fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style LV fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
+    style DE fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style RA fill:#10b981,stroke:#059669,color:#ecfdf5
+    style MLP fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style PLV fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
     style HRQ fill:#64748b,stroke:#475569,color:#f8fafc
-    style GEN2 fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
-    style GA fill:#10b981,stroke:#059669,color:#ecfdf5
     style HRS fill:#64748b,stroke:#475569,color:#f8fafc
 ```
 
@@ -48,19 +49,25 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[/Audio + Geotags/] --> GEN[Generator]
-    GEN --> FA[/Fake Audio/]
-    FA --> DIS[Discriminator]
-    A --> DIS
-    DIS --> RF[/Real or Fake/]
-    RF -.->|Adversarial Loss| GEN
-    RF -.->|Adversarial Loss| DIS
+    A[/Audio/] --> EN[Encoder]
+    EN --> LV[/Latent Vector/]
+    LV --> DE[Decoder]
+    DE --> RA[/Reconstructed Audio/]
+    A -.->|MAE Loss| RA
+
+    G[/Geotags/] --> MLP[Multi Layer Perceptron]
+    MLP --> PLV[/Predicted Latent Vector/]
+    PLV --> DE
+    LV -.->|MAE Loss| PLV
 
     style A fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
-    style GEN fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
-    style FA fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
-    style DIS fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
-    style RF fill:#10b981,stroke:#059669,color:#ecfdf5
+    style EN fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style LV fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
+    style DE fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style RA fill:#10b981,stroke:#059669,color:#ecfdf5
+    style G fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
+    style MLP fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style PLV fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
 ```
 
 ---
@@ -69,12 +76,16 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    HRQ(HTTP Request) --> GEN[Generator]
-    GEN --> GA[/Generated Audio/]
+    HRQ(HTTP Request) --> MLP[Multi Layer Perceptron]
+    MLP --> LV[/Latent Vector/]
+    LV --> DE[Decoder]
+    DE --> GA[/Generated Audio/]
     GA --> HRS(HTTP Response)
 
     style HRQ fill:#64748b,stroke:#475569,color:#f8fafc
-    style GEN fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style MLP fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
+    style LV fill:#0ea5e9,stroke:#0284c7,color:#f0f9ff
+    style DE fill:#8b5cf6,stroke:#7c3aed,color:#f5f3ff
     style GA fill:#10b981,stroke:#059669,color:#ecfdf5
     style HRS fill:#64748b,stroke:#475569,color:#f8fafc
 ```
